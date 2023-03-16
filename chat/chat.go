@@ -2,6 +2,7 @@ package chat
 
 import (
 	chess "Chess/chess/handler"
+	"Chess/lib"
 	"Chess/redispool"
 	"encoding/json"
 	"errors"
@@ -10,22 +11,20 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
-	"strconv"
 )
 
 type Client struct {
-	Name    string
-	Room    string
-	PubName string
-	Conn    *websocket.Conn
-	Close   chan bool
+	Name  string
+	Room  string
+	Conn  *websocket.Conn
+	Pub   redis.PubSubConn
+	Close chan bool
 }
 
 type Message struct {
-	Conn      *websocket.Conn `json:"-"`
-	EventType int             `json:"type"`    // 0 发送消息 1 发送消息给某个用户 2 用户加入 3 用户退出
-	Content   string          `json:"content"` // 消息内容
-	Name      string          `json:"name"`    // 用户名称
+	Conn    *websocket.Conn `json:"-"`
+	Content string          `json:"content"` // 消息内容
+	Name    string          `json:"name"`    // 用户名称
 }
 
 type JSONResult struct {
@@ -34,130 +33,83 @@ type JSONResult struct {
 	Data   interface{}
 }
 
-func Get(r *http.Request, key string) string {
-	return r.URL.Query().Get(key)
+func NewClient(conn *websocket.Conn, name, room string) *Client {
+	return &Client{Name: name, Conn: conn, Room: room, Close: make(chan bool, 1)}
 }
 
-func SetHeader(w http.ResponseWriter, key, val string) {
-	w.Header().Set(key, val)
-}
-
-func ReturnMsg(w http.ResponseWriter, res string, obj interface{}) {
-	SetHeader(w, "Content-Type", "application/json")
-
-	msg := &JSONResult{Status: 200, Error: res, Data: obj}
-	if res != "" {
-		log.Println(res)
-		msg.Status = 404
-		msg.Error = res
-	}
-
-	str, err := json.Marshal(msg)
-	if err != nil {
-		log.Println("json.Marshal 错误", err)
-	}
-	_, _ = w.Write(str)
-}
-
-func NewClient(conn *websocket.Conn, name, room, pub string) *Client {
-	return &Client{Name: name, Conn: conn, Room: room, PubName: pub, Close: make(chan bool, 1)}
-}
-
-func NewMsg(eventType int, content, name string, conn *websocket.Conn) *Message {
-	return &Message{EventType: eventType, Content: content, Name: name, Conn: conn}
-}
-
-// LeaveRoom 没什么意义，每次调用都会该redisConn取消订阅，本来就没订阅故没有效果
-func LeaveRoom(w http.ResponseWriter, r *http.Request) {
-	conn := redispool.RedisPool.Get()
-	defer conn.Close()
-
-	room := Get(r, "room")
-	if room == "" {
-		ReturnMsg(w, "room为空", nil)
-		return
-	}
-
-	reply, _ := redis.Int(conn.Do("get", room))
-	_, _ = conn.Do("set", reply-1)
-	ReturnMsg(w, "", fmt.Sprintf("当前房间剩余人数 %d", reply-1))
+func NewMsg(content, name string, conn *websocket.Conn) *Message {
+	return &Message{Content: content, Name: name, Conn: conn}
 }
 
 func HaveRoom(w http.ResponseWriter, r *http.Request) {
 	conn := redispool.RedisPool.Get()
 	defer conn.Close()
 
-	room := Get(r, "room")
+	room := lib.Get(r, "room")
 	reply, err := redis.Int(conn.Do("get", room))
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	ReturnMsg(w, "", reply)
+	lib.ReturnMsg(w, "", reply)
 }
 
 func RoomNum(w http.ResponseWriter, r *http.Request) {
 	conn := redispool.RedisPool.Get()
 	defer conn.Close()
 
-	room := Get(r, "room")
+	room := lib.Get(r, "room")
 	reply, _ := redis.String(conn.Do("get", room))
 	if reply != "" {
-		ReturnMsg(w, "", reply)
+		lib.ReturnMsg(w, "", reply)
 	}
-	ReturnMsg(w, "房间不存在", 0)
+	lib.ReturnMsg(w, "房间不存在", 0)
 }
 
+// Room 加入房间，建立连接
 func Room(w http.ResponseWriter, r *http.Request) {
-	name := Get(r, "name")
-	room := Get(r, "room")
-
-	// 0 创建房间  1 加入房间  2 机器房间
-	action := Get(r, "action")
+	name := lib.Get(r, "name")
+	room := lib.Get(r, "room")
 
 	// 参数判断
-	if checkParams(name, room, action) != nil {
-		ReturnMsg(w, "所有参数不得为空", nil)
+	if checkParams(name, room) != nil {
+		lib.ReturnMsg(w, "所有参数不得为空", nil)
 		return
 	}
 
 	// 连接判断
 	conn, err := connectWS(w, r)
 	if err != nil {
-		ReturnMsg(w, "连接错误", nil)
+		lib.ReturnMsg(w, "连接错误", nil)
 		return
 	}
 
 	// 创建房间及订阅频道
-	eventType, _ := strconv.Atoi(action)
 	redisConn := redispool.RedisPool.Get()
-	redispool.GetsSetRoom(redisConn, room)
+	redispool.GetSetRoom(redisConn, room)
 
-	pub := "chat-" + room
-	if eventType == 2 {
-		pub = "machine-" + room
-	}
-	client := NewClient(conn, name, room, pub)
-	newPub := client.JoinRoom() // 加入房间频道
+	client := NewClient(conn, name, room)
+	client.joinRoom() // 加入房间频道
 
 	// 消息往来
-	go client.broadCast(newPub)
-	go client.readMessage(eventType)
+	go client.broadCast()
+	go client.readMessage()
+
+	// 加入成功，广播房间
+	msg := NewMsg(fmt.Sprintf("用户[%s]加入房间[%s]", client.Name, client.Room),
+		client.Name, client.Conn)
+	client.writeMessage(msg)
 
 	// 监听停止
 	for {
 		select {
 		case <-client.Close:
-			close(client.Close)
-
 			// 关闭房间
 			_ = closeRoom(redisConn, room)
 
-			// 退订频道
-			log.Println(room + "退订频道")
-			_ = newPub.Unsubscribe(room)
-			_ = newPub.Conn.Close()
-			_ = newPub.Close()
+			// 广播退出，退订频道
+			client.leaveRoom()
+			close(client.Close)
 			return
 		}
 	}
@@ -198,33 +150,38 @@ func closeRoom(conn redis.Conn, room string) error {
 	return nil
 }
 
-// LeaveRoom 退出频道
-func (c *Client) LeaveRoom() {
+// leaveRoom 退出频道
+func (c *Client) leaveRoom() {
+	content := fmt.Sprintf("用户[%s]退出房间[%s]", c.Name, c.Room)
+	msg := NewMsg(content, c.Name, c.Conn)
+	c.writeMessage(msg) // 广播退出
 
+	_ = c.Pub.Unsubscribe(c.Room)
+	_ = c.Pub.Conn.Close()
+	_ = c.Pub.Close()
 }
 
-// JoinRoom 订阅频道
-func (c *Client) JoinRoom() redis.PubSubConn {
+// joinRoom 订阅频道
+func (c *Client) joinRoom() {
 	conn := redispool.RedisPool.Get()
 	newPub := redis.PubSubConn{
 		Conn: conn,
 	}
 
 	//订阅一个频道
-	err := newPub.Subscribe(c.PubName)
+	err := newPub.Subscribe(c.Room)
 	if err != nil {
 		fmt.Println("Subscribe err:", err)
-		return newPub
+		return
 	}
-	log.Println(c.Name, "join room", c.Room)
-	return newPub
+	c.Pub = newPub
 }
 
 // 监听订阅消息
-func (c *Client) broadCast(Pub redis.PubSubConn) {
+func (c *Client) broadCast() {
 	for {
 		//Receive()返回的是空接口interface{}的类型,所以需要断言
-		switch v := Pub.Receive().(type) {
+		switch v := c.Pub.Receive().(type) {
 		//Redis.Message结构体
 		//type Message struct {
 		//	Channel string
@@ -245,7 +202,7 @@ func (c *Client) broadCast(Pub redis.PubSubConn) {
 }
 
 // 读取消息,并作为发布者写入信息
-func (c *Client) readMessage(eventType int) {
+func (c *Client) readMessage() {
 	for {
 		_, data, err := c.Conn.ReadMessage()
 		if err != nil {
@@ -264,7 +221,7 @@ func (c *Client) readMessage(eventType int) {
 			log.Println("result ", string(data))
 		}
 
-		msg := NewMsg(eventType, string(data), c.Name, c.Conn)
+		msg := NewMsg(string(data), c.Name, c.Conn)
 		c.writeMessage(msg)
 	}
 }
@@ -279,7 +236,7 @@ func (c *Client) writeMessage(msg *Message) {
 	sender := redispool.RedisPool.Get()
 	defer sender.Close()
 
-	_, err = sender.Do("publish", c.PubName, data)
+	_, err = sender.Do("publish", c.Room, data)
 	if err != nil {
 		log.Println("send msg error:", err)
 	}

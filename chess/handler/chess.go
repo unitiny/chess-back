@@ -182,10 +182,10 @@ func GetChessStep(msg *MachineMsg) string {
 		return err.Error()
 	}
 
-	engine.DrawGame()
+	//engine.DrawGame()
 	engine.getNextStep(config.MAX_DEPTH, -MAX_SCORE, MAX_SCORE)
 
-	if len(steps) != 0 {
+	if len(msg.Start) != 0 && len(msg.End) != 0 {
 		RecordRoomStep(msg.Room, steps[len(steps)-1], engine.record.bestStep)
 	} else {
 		RecordRoomStep(msg.Room, engine.record.bestStep)
