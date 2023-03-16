@@ -2,11 +2,13 @@ package handler
 
 import (
 	"Chess/chess/config"
+	"Chess/lib"
 	"Chess/redispool"
 	"encoding/json"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"log"
+	"net/http"
 )
 
 type MachineActionFunc func(msg *MachineMsg) string
@@ -105,4 +107,23 @@ func BackRoomStep(msg *MachineMsg) string {
 		res = "BackRoomStep pop fail"
 	}
 	return res
+}
+
+func (m *MachineMsg) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		msg := new(MachineMsg)
+		dec := json.NewDecoder(r.Body)
+		err := dec.Decode(msg)
+		fmt.Printf("%+v\n", msg)
+		if err != nil {
+			lib.ReturnMsg(w, err.Error(), nil)
+			return
+		}
+
+		res := MachineActionFuncs[msg.Action](msg)
+		lib.ReturnMsg(w, "", res)
+	default:
+		lib.ReturnMsg(w, "only support post method", nil)
+	}
 }
