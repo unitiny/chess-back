@@ -18,6 +18,7 @@ type RedisConf struct {
 	Host string `cfg:"host"`
 	Port string `cfg:"port"`
 	Pwd  string `cfg:"pwd"`
+	User string `cfg:"user"`
 }
 
 var Config *RedisConf
@@ -27,8 +28,11 @@ var filename = "redis.conf"
 func StartRedis() (redis.Conn, error) {
 	conn, err := redis.Dial("tcp",
 		fmt.Sprintf("%s:%s", Config.Host, Config.Port),
+		redis.DialUsername(Config.User),
 		redis.DialPassword(Config.Pwd)) // 启动redis
+
 	if err != nil {
+		log.Println("redis连接失败：", err)
 		return nil, err
 	} else {
 		log.Println("redis连接成功")

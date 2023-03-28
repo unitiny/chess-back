@@ -4,6 +4,7 @@ import (
 	"Chess/chat"
 	chess "Chess/chess/handler"
 	_ "Chess/redispool"
+	"log"
 	"net/http"
 )
 
@@ -13,5 +14,8 @@ func main() {
 	http.HandleFunc("/roomNum", chat.RoomNum)
 
 	http.Handle("/chess", &chess.MachineMsg{})
-	_ = http.ListenAndServe("0.0.0.0:9000", nil)
+	err := http.ListenAndServe("0.0.0.0:9000", nil)
+	if err != nil {
+		log.Println(err)
+	}
 }
