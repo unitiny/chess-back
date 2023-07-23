@@ -23,7 +23,7 @@ type RedisConf struct {
 }
 
 var Config *RedisConf
-var filename = "./src/redis.conf"
+var filename = "./redis.conf"
 
 // StartRedis 启动单线程redis
 func StartRedis() (redis.Conn, error) {

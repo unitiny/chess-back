@@ -9,7 +9,6 @@ ENV \
 EXPOSE 9000
 
 RUN echo $GOPATH
-RUN mkdir -p $GOPATH/src
 WORKDIR $GOPATH/src
 COPY . .
 RUN go mod tidy
