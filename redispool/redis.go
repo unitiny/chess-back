@@ -23,7 +23,7 @@ type RedisConf struct {
 }
 
 var Config *RedisConf
-var filename = "redis.conf"
+var filename = "./redis.conf"
 
 // StartRedis 启动单线程redis
 func StartRedis() (redis.Conn, error) {
@@ -56,8 +56,8 @@ func StartRedisPool() *redis.Pool {
 
 // GetConfig 获取redis配置
 func GetConfig(fileName string) (*RedisConf, error) {
-	fmt.Println(lib.GetRoot())
-	file, err := os.Open(lib.GetRoot() + fileName)
+	fmt.Println(lib.GetRoot(), fileName)
+	file, err := os.Open(fileName)
 	if err != nil {
 		return nil, err
 	}
