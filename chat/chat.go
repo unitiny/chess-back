@@ -59,7 +59,10 @@ func RoomNum(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	room := lib.Get(r, "room")
-	reply, _ := redis.String(conn.Do("get", room))
+	reply, err := redis.String(conn.Do("get", room))
+	if err != nil {
+		fmt.Println(err)
+	}
 	if reply != "" {
 		lib.ReturnMsg(w, "", reply)
 	}
