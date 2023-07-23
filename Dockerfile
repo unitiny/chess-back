@@ -13,4 +13,5 @@ WORKDIR $GOPATH/src
 COPY . .
 RUN go mod tidy
 
-RUN go run .
+RUN go build -o main .
+CMD ["./main", "&"]
