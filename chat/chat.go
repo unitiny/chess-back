@@ -42,6 +42,7 @@ func NewMsg(content, name string, conn *websocket.Conn) *Message {
 }
 
 func HaveRoom(w http.ResponseWriter, r *http.Request) {
+	lib.SetupCORS(&w)
 	conn := redispool.RedisPool.Get()
 	defer conn.Close()
 
@@ -55,6 +56,7 @@ func HaveRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 func RoomNum(w http.ResponseWriter, r *http.Request) {
+	lib.SetupCORS(&w)
 	conn := redispool.RedisPool.Get()
 	defer conn.Close()
 
@@ -66,7 +68,7 @@ func RoomNum(w http.ResponseWriter, r *http.Request) {
 	if reply != "" {
 		lib.ReturnMsg(w, "", reply)
 	}
-	lib.ReturnMsg(w, "房间不存在", 0)
+	lib.ReturnMsg(w, "", 0)
 }
 
 // Room 加入房间，建立连接
