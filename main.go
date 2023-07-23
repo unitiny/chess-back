@@ -3,12 +3,13 @@ package main
 import (
 	"Chess/chat"
 	chess "Chess/chess/handler"
-	_ "Chess/redispool"
+	"Chess/redispool"
 	"log"
 	"net/http"
 )
 
 func main() {
+	redispool.Start()
 	http.HandleFunc("/joinRoom", chat.Room)
 	http.HandleFunc("/haveRoom", chat.HaveRoom)
 	http.HandleFunc("/roomNum", chat.RoomNum)

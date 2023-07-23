@@ -40,9 +40,8 @@ type Step struct {
 
 // Record 记录
 type Record struct {
-	maxValue int    // 最优走法价值
-	curStep  []Step // 当前递归走法
-	bestStep Step   // 最优走法
+	maxValue int  // 最优走法价值
+	bestStep Step // 最优走法
 }
 
 // Zobrist 储存棋局 每个位置存储所有状态
@@ -169,30 +168,42 @@ func GetChessStep(msg *MachineMsg) string {
 	log.Printf("GetChessStep...\n\n")
 
 	steps := GetRoomSteps(msg.Room)
+	steps, err := getStepsByID(steps, msg.ID)
+	if err != nil {
+		return err.Error()
+	}
+
 	if len(msg.Start) != 0 && len(msg.End) != 0 {
-		steps = append(steps, Step{Id: len(steps), Start: *mapToPos(msg.Start), End: *mapToPos(msg.End)})
+		steps = append(steps, Step{Id: msg.ID, Start: *mapToPos(msg.Start), End: *mapToPos(msg.End)})
 	}
 	log.Println("GetChessSteps steps: ", steps)
 
 	camp := strconv.Itoa((len(steps) % 2) ^ 1) // 黑方0 红方1
 	engine := NewEngine(camp, msg.Room)
 
-	err := engine.initChessGame(steps)
+	err = engine.initChessGame(steps)
 	if err != nil {
 		return err.Error()
 	}
 
 	//engine.DrawGame()
-	engine.getNextStep(config.MAX_DEPTH, -MAX_SCORE, MAX_SCORE)
+	engine.GetNextStep(config.MAX_DEPTH, -MAX_SCORE, MAX_SCORE)
 
-	if len(msg.Start) != 0 && len(msg.End) != 0 {
-		RecordRoomStep(msg.Room, steps[len(steps)-1], engine.record.bestStep)
-	} else {
-		RecordRoomStep(msg.Room, engine.record.bestStep)
-	}
+	engine.record.bestStep.Id = msg.ID + 1
+	steps = append(steps, engine.record.bestStep)
+	RecordRoomStep1(msg.Room, steps)
 
 	result, _ := json.Marshal(engine.record.bestStep)
 	return string(result)
+}
+
+// getStepsByID 根据ID获取棋局 id = [0, len(steps)]
+func getStepsByID(steps []Step, id int) ([]Step, error) {
+	if id < 0 || id > len(steps) {
+		return nil, errors.New("[getStepsByID] id越界")
+	}
+
+	return steps[:id], nil
 }
 
 // 初始化棋局
@@ -223,14 +234,22 @@ func (e *Engine) initChessGame(steps []Step) error {
 	}
 
 	// 移动棋子
-	for _, step := range steps {
+	for k, step := range steps {
 		// 改变位置
-		Start, has := e.PosDict[step.Start]
+		index, has := e.PosDict[step.Start]
 		if !has {
 			return errors.New("init fail: none start pos")
 		}
-		e.Chesses[Start].x = step.End.X
-		e.Chesses[Start].y = step.End.Y
+
+		// 检查游戏是否同步
+		if k > 0 {
+			lastIndex := e.PosDict[steps[k-1].End]
+			if isSameCamp(e.Chesses[index].status, e.Chesses[lastIndex].status) {
+				return errors.New("init fail: game out of sync")
+			}
+		}
+		e.Chesses[index].x = step.End.X
+		e.Chesses[index].y = step.End.Y
 
 		// 若目标位置有棋子，则被吃
 		if end, ok := e.PosDict[step.End]; ok {
@@ -239,17 +258,17 @@ func (e *Engine) initChessGame(steps []Step) error {
 
 		// 更新字典
 		delete(e.PosDict, step.Start)
-		e.PosDict[step.End] = Start
+		e.PosDict[step.End] = index
 	}
 	e.gameSteps = len(steps)
 	return nil
 }
 
-/* dfs + 回溯，得到人机结果
-*  先深入到叶子节点，然后回溯，得出每层的最优解，
-*  到根节点自然得到最优走法了
- */
-func (e *Engine) getNextStep(depth, Alpha, Beta int) int {
+// GetNextStep
+// dfs + 回溯，得到人机结果
+// 先深入到叶子节点，然后回溯，得出每层的最优解，
+// 到根节点自然得到最优走法了
+func (e *Engine) GetNextStep(depth, Alpha, Beta int) int {
 	// 0 查找历史表
 	flag := HASH_ALPHA
 	if val := e.probeHashGame(depth, Alpha, Beta); val != VAL_UNKNOWN {
@@ -266,13 +285,17 @@ func (e *Engine) getNextStep(depth, Alpha, Beta int) int {
 	// 2 遍历所有走法，得出最优几种
 	e.depth = depth
 	steps := e.getAllStep()
+	if reflect.DeepEqual(e.record.bestStep, Step{}) &&
+		depth == config.MAX_DEPTH && len(steps) > 0 {
+		e.record.bestStep = *steps[0] // 记录备用走法
+	}
 
 	// 3 逐个尝试走法
 	for i := 0; i < len(steps); i++ {
 		// 3.1 移动棋局并继续深入
 		step := *steps[i]
 		e.ahead(step)
-		value := -e.getNextStep(depth-1, -Beta, -Alpha)
+		value := -e.GetNextStep(depth-1, -Beta, -Alpha)
 
 		// 3.2 回溯复原
 		e.depth = depth
@@ -366,7 +389,7 @@ func (e *Engine) getAllStep() []*Step {
 		}
 
 		startPos := NewPos(chess.x, chess.y)
-		allPos := e.getChessSteps(i) // 获取该棋子所有走
+		allPos := e.getChessSteps(i) // 获取该棋子所有走法
 		for _, pos := range allPos {
 			steps = append(steps, NewStep(0, *startPos, pos))
 		}
@@ -567,4 +590,10 @@ func (e *Engine) recordHashGame(depth, val, flag int) {
 		flag:  flag,
 	}
 	e.hashTable[key] = hashGame
+}
+
+func GetEngine() *Engine {
+	e := NewEngine("1", "abcd")
+	e.initChessGame([]Step{})
+	return e
 }

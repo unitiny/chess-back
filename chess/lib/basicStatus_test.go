@@ -215,6 +215,14 @@ func TestHas(t *testing.T) {
 			arg2: 3,
 			want: false,
 		},
+		{
+			name: "right target",
+			arg1: &BasicStatus{
+				Status: 8,
+			},
+			arg2: 8,
+			want: true,
+		},
 	}
 
 	for i := 0; i < len(tests); i++ {
@@ -251,6 +259,15 @@ func TestIsSame(t *testing.T) {
 			arg2: 0,
 			arg3: 0,
 			want: true,
+		},
+		{
+			name: "one target",
+			arg1: &BasicStatus{
+				Status: 12,
+			},
+			arg2: 1,
+			arg3: 0,
+			want: false,
 		},
 		{
 			name: "one target",

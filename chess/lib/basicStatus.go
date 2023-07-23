@@ -12,6 +12,7 @@ type BasicStatus struct {
 	Status int
 }
 
+// Reverse 翻转状态
 func (c *BasicStatus) Reverse(target ...int) {
 	res := c.Status
 	for i := 0; i < len(target); i++ {
@@ -20,6 +21,7 @@ func (c *BasicStatus) Reverse(target ...int) {
 	c.Status = res
 }
 
+// Reset 重置状态
 func (c *BasicStatus) Reset(target ...int) {
 	res := c.Status
 	for i := 0; i < len(target); i++ {
@@ -28,6 +30,7 @@ func (c *BasicStatus) Reset(target ...int) {
 	c.Status = res
 }
 
+// Set 设置状态
 func (c *BasicStatus) Set(target ...int) {
 	res := c.Status
 	for i := 0; i < len(target); i++ {
@@ -36,6 +39,7 @@ func (c *BasicStatus) Set(target ...int) {
 	c.Status = res
 }
 
+// Has 目标状态位是否为1
 func (c *BasicStatus) Has(target int) bool {
 	if c.Status&target == 0 {
 		return false
@@ -43,9 +47,10 @@ func (c *BasicStatus) Has(target int) bool {
 	return true
 }
 
+// IsSame 判断子状态是否相同
 func (c *BasicStatus) IsSame(target int, offset int) bool {
 	if target == 0 {
-		return c.Status&1 == 0
+		return c.Status&1 == target
 	}
 
 	status := c.Status

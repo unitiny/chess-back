@@ -16,6 +16,7 @@ type MachineActionFunc func(msg *MachineMsg) string
 // MachineMsg 前端消息格式
 type MachineMsg struct {
 	Action Type                   `json:"action"`
+	ID     int                    `json:"id"`
 	Room   string                 `json:"room"`
 	Start  map[string]interface{} `json:"start"`
 	End    map[string]interface{} `json:"end"`
@@ -26,7 +27,7 @@ var MachineActionFuncs map[Type]MachineActionFunc
 func init() {
 	MachineActionFuncs = make(map[Type]MachineActionFunc)
 	MachineActionFuncs[CLEAR] = DelRoom
-	MachineActionFuncs[BACK] = BackRoomStep
+	//MachineActionFuncs[BACK] = BackRoomStep // 取消悔棋接口
 	MachineActionFuncs[GO] = GetChessStep
 }
 
@@ -55,7 +56,7 @@ func RecordRoomStep(room string, steps ...Step) {
 	conn := redispool.RedisPool.Get()
 	defer conn.Close()
 	key := config.RoomPrefix + room
-	_, _ = redis.Int(conn.Do("llen", key))
+	//_, _ = redis.Int(conn.Do("llen", key))
 
 	for i := 0; i < len(steps); i++ {
 		if i != 0 {
@@ -66,6 +67,34 @@ func RecordRoomStep(room string, steps ...Step) {
 		reply, err := conn.Do("rpush", key, str)
 		if err != nil {
 			log.Println("RecordRoomStep :", reply, err)
+			return
+		}
+	}
+}
+
+// RecordRoomStep1 向房间写入下棋记录
+func RecordRoomStep1(room string, steps []Step) {
+	conn := redispool.RedisPool.Get()
+	defer conn.Close()
+	key := config.RoomPrefix + room
+	length, _ := redis.Int(conn.Do("llen", key))
+	if length > len(steps) {
+		// 删除记录，重新写入
+		_, _ = conn.Do("del", key)
+	} else {
+		// 把新记录加入即可
+		steps = steps[length:]
+	}
+
+	for i := 0; i < len(steps); i++ {
+		if i != 0 {
+			steps[i].Id = steps[i-1].Id + 1
+		}
+
+		str, _ := json.Marshal(steps[i])
+		reply, err := conn.Do("rpush", key, str)
+		if err != nil {
+			log.Println("RecordRoomStep1 :", reply, err)
 			return
 		}
 	}

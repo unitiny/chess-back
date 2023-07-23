@@ -1,6 +1,7 @@
 package redispool
 
 import (
+	"Chess/lib"
 	"bufio"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
@@ -55,6 +56,7 @@ func StartRedisPool() *redis.Pool {
 
 // GetConfig 获取redis配置
 func GetConfig(fileName string) (*RedisConf, error) {
+	fmt.Println(lib.GetRoot())
 	file, err := os.Open(fileName)
 	if err != nil {
 		return nil, err
@@ -125,7 +127,7 @@ func GetSetRoom(conn redis.Conn, room string) {
 	}
 }
 
-func init() {
+func Start() {
 	var err error
 	Config, err = GetConfig(filename)
 	if err != nil {

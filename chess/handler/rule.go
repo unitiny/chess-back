@@ -37,6 +37,25 @@ func (s *king) Steps(c []*Chess, posDic map[Pos]int, index int) []Pos {
 		res = append(res, *end)
 	}
 
+	// 攻击对方将军
+	for i := 1; i <= RED_BOTTOM; i++ {
+		pos := Pos{}
+		if bottom == RED_BOTTOM {
+			pos = Pos{X: chess.x, Y: chess.y - i}
+		} else {
+			pos = Pos{X: chess.x, Y: chess.y + i}
+		}
+		if index, ok := posDic[pos]; ok {
+			if !c[index].status.Has(ALIVE) {
+				continue
+			}
+			if c[index].name == KING {
+				res = append(res, pos)
+			}
+			break
+		}
+	}
+
 	return res
 }
 

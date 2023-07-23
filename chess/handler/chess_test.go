@@ -47,12 +47,6 @@ func copyEngine(e *Engine) *Engine {
 	return &e1
 }
 
-func getEngine() *Engine {
-	e := NewEngine("1", "abcd")
-	e.initChessGame([]Step{})
-	return e
-}
-
 func TestCommon(t *testing.T) {
 	//fmt.Println(subSameStatus("10110", "11011", 2))
 	//fmt.Println(subSameStatus("10110", "11011", 1))
@@ -60,8 +54,8 @@ func TestCommon(t *testing.T) {
 }
 
 func TestDeepEqual(t *testing.T) {
-	e1 := getEngine()
-	e2 := getEngine()
+	e1 := GetEngine()
+	e2 := GetEngine()
 	fmt.Println(reflect.DeepEqual(e1.Chesses, e2.Chesses))
 
 	step1 := *NewStep(0, Pos{1, 7}, Pos{1, 0})
@@ -79,7 +73,7 @@ func TestHasElement(t *testing.T) {
 }
 
 func TestIsCheckmate(t *testing.T) {
-	e := getEngine()
+	e := GetEngine()
 	step1 := NewStep(0, Pos{2, 9}, Pos{4, 7})
 	step2 := NewStep(0, Pos{1, 2}, Pos{1, 9})
 	step3 := NewStep(0, Pos{0, 9}, Pos{1, 9})
@@ -97,7 +91,7 @@ func TestIsCheckmate(t *testing.T) {
 }
 
 func TestEvaluateValue(t *testing.T) {
-	e := getEngine()
+	e := GetEngine()
 	step1 := *NewStep(0, Pos{2, 9}, Pos{4, 7})
 	step2 := *NewStep(0, Pos{1, 2}, Pos{1, 9})
 	step3 := *NewStep(0, Pos{0, 9}, Pos{1, 9})
@@ -117,7 +111,7 @@ func TestEvaluateValue(t *testing.T) {
 }
 
 func TestGetAllSteps(t *testing.T) {
-	e := getEngine()
+	e := GetEngine()
 	steps := e.getAllStep()
 
 	sort.Slice(steps, func(i, j int) bool {
@@ -132,28 +126,24 @@ func TestGetAllSteps(t *testing.T) {
 	fmt.Println(len(steps))
 }
 
-func TestGetNextStep(t *testing.T) {
-	redispool.RedisPool = redispool.StartRedisPool()
-
-	m := new(MachineMsg)
-	m.Action = 0
-	m.Room = "abcd"
-	m.Start = map[string]interface{}{"x": 1.0, "y": 7.0}
-	m.End = map[string]interface{}{"x": 1.0, "y": 0.0}
-
-	res := GetChessStep(m)
-	fmt.Println(res)
-
-	defer DelRoom(m)
+func TestKingSteps(t *testing.T) {
+	e := GetEngine()
+	e.Chesses[2].status.Reset(ALIVE)
+	fmt.Printf("%+v %+v\n", e.Chesses[2], e.Chesses[len(e.Chesses)-3])
+	for _, chess := range e.Chesses {
+		if chess.name == KING {
+			fmt.Printf("%+v\n", chessStepsFuncs[chess.name].Steps(e.Chesses, e.PosDict, chess.id))
+		}
+	}
 }
 
 func TestDrawGame(t *testing.T) {
-	e := getEngine()
+	e := GetEngine()
 	e.DrawGame()
 }
 
 func TestStepAndDraw(t *testing.T) {
-	e := getEngine()
+	e := GetEngine()
 	step1 := *NewStep(0, Pos{1, 7}, Pos{1, 0})
 	step2 := *NewStep(0, Pos{0, 0}, Pos{1, 0})
 	step3 := *NewStep(0, Pos{7, 7}, Pos{7, 0})
@@ -199,7 +189,7 @@ func TestGame(t *testing.T) {
 	e := getLatestGame()
 	e.DrawGame()
 	fmt.Println(e.isCheckmate())
-	e.getNextStep(config.MAX_DEPTH, -MAX_SCORE, MAX_SCORE)
+	e.GetNextStep(config.MAX_DEPTH, -MAX_SCORE, MAX_SCORE)
 
 	fmt.Printf("%+v\n", e.record.bestStep)
 

@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"path"
+	"runtime"
+	"strings"
 )
 
 func Get(r *http.Request, key string) string {
@@ -32,4 +35,15 @@ func ReturnMsg(w http.ResponseWriter, res string, obj interface{}) {
 		log.Println("json.Marshal 错误", err)
 	}
 	_, _ = w.Write(str)
+}
+
+// GetRoot 获取项目根路径
+func GetRoot() string {
+	var abPath string
+	_, fileName, _, ok := runtime.Caller(0)
+	if ok {
+		abPath = path.Dir(fileName)
+	}
+	i := strings.LastIndex(abPath, "/")
+	return abPath[:i]
 }
