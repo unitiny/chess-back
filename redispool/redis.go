@@ -57,7 +57,7 @@ func StartRedisPool() *redis.Pool {
 // GetConfig 获取redis配置
 func GetConfig(fileName string) (*RedisConf, error) {
 	fmt.Println(lib.GetRoot())
-	file, err := os.Open(fileName)
+	file, err := os.Open(lib.GetRoot() + fileName)
 	if err != nil {
 		return nil, err
 	}

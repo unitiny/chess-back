@@ -45,5 +45,8 @@ func GetRoot() string {
 		abPath = path.Dir(fileName)
 	}
 	i := strings.LastIndex(abPath, "/")
-	return abPath[:i]
+	if i < 0 {
+		return ""
+	}
+	return abPath[:i+1]
 }
