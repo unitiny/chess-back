@@ -43,8 +43,6 @@ func getPath(prefix string, name ...string) string {
 }
 
 func main() {
-	EditHandler("./", "")
-
 	redispool.Start()
 	http.HandleFunc("/joinRoom", chat.Room)
 	http.HandleFunc("/haveRoom", chat.HaveRoom)
