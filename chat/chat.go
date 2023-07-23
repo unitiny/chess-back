@@ -73,6 +73,7 @@ func RoomNum(w http.ResponseWriter, r *http.Request) {
 
 // Room 加入房间，建立连接
 func Room(w http.ResponseWriter, r *http.Request) {
+	lib.SetupCORS(&w)
 	name := lib.Get(r, "name")
 	room := lib.Get(r, "room")
 

@@ -139,6 +139,7 @@ func BackRoomStep(msg *MachineMsg) string {
 }
 
 func (m *MachineMsg) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	lib.SetupCORS(&w)
 	switch r.Method {
 	case http.MethodPost:
 		msg := new(MachineMsg)
