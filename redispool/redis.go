@@ -1,6 +1,7 @@
 package redispool
 
 import (
+	"Chess/global"
 	"bufio"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
@@ -127,6 +128,9 @@ func GetSetRoom(conn redis.Conn, room string) {
 
 func Start() {
 	var err error
+	if global.DEBUG {
+		filename = "./redis-dev.conf"
+	}
 	Config, err = GetConfig(filename)
 	if err != nil {
 		log.Fatal(err)

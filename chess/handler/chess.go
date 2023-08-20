@@ -167,6 +167,7 @@ func NewEngine(camp string, room string) *Engine {
 func GetChessStep(msg *MachineMsg) string {
 	log.Printf("GetChessStep...\n\n")
 
+	// 获取棋局
 	steps := GetRoomSteps(msg.Room)
 	steps, err := getStepsByID(steps, msg.ID)
 	if err != nil {
@@ -178,9 +179,9 @@ func GetChessStep(msg *MachineMsg) string {
 	}
 	log.Println("GetChessSteps steps: ", steps)
 
+	// 初始化棋局
 	camp := strconv.Itoa((len(steps) % 2) ^ 1) // 黑方0 红方1
 	engine := NewEngine(camp, msg.Room)
-
 	err = engine.initChessGame(steps)
 	if err != nil {
 		return err.Error()
@@ -188,7 +189,9 @@ func GetChessStep(msg *MachineMsg) string {
 
 	//engine.DrawGame()
 	engine.GetNextStep(config.MAX_DEPTH, -MAX_SCORE, MAX_SCORE)
+	log.Println("GetChessSteps getNextStep: ", engine.record.bestStep)
 
+	// 记录走法
 	engine.record.bestStep.Id = msg.ID + 1
 	steps = append(steps, engine.record.bestStep)
 	RecordRoomStep1(msg.Room, steps)
